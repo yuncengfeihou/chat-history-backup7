@@ -652,34 +652,34 @@ async function performManualBackup() {
 // --- 工具函数：等待 CHAT_CHANGED 事件 ---
 // 功能：返回一个 Promise，该 Promise 在 CHAT_CHANGED 事件触发且满足特定条件时 resolve，
 //       或者在超时后 reject。
-function waitForChatChange(expectedConditionFn, description, timeoutMs = 7000) { // 超时时间稍延长
+function waitForChatChange(expectedConditionFn, description, timeoutMs = 7000) {
     return new Promise((resolve, reject) => {
-        let listener; // 在外部声明以便在 timeout 中移除
+        let listener;
         logDebug(`waitForChatChange: 开始等待 "${description}" (超时: ${timeoutMs}ms)`);
 
         const timeout = setTimeout(() => {
             if (listener) {
-                eventSource.off(event_types.CHAT_CHANGED, listener);
+                // *** 修改点：使用 removeListener ***
+                eventSource.removeListener(event_types.CHAT_CHANGED, listener);
                 logDebug(`waitForChatChange: 等待 "${description}" (CHAT_CHANGED) 超时!`);
             }
             reject(new Error(`等待 "${description}" (CHAT_CHANGED) 超时 (${timeoutMs}ms)`));
         }, timeoutMs);
 
         listener = (receivedChatId) => {
-            const currentContext = getContext(); // 获取当前上下文以供检查
+            const currentContext = getContext();
             logDebug(`waitForChatChange: 收到 CHAT_CHANGED 事件 (ID: ${receivedChatId}), 检查条件 "${description}"...`);
-            // 调用传入的条件检查函数
             if (expectedConditionFn(receivedChatId, currentContext)) {
                 logDebug(`waitForChatChange: 条件满足 ("${description}"). Received Chat ID: ${receivedChatId}`);
                 clearTimeout(timeout);
-                eventSource.off(event_types.CHAT_CHANGED, listener);
-                // requestAnimationFrame 可能有助于确保后续操作基于最新的状态
+                // *** 修改点：使用 removeListener ***
+                eventSource.removeListener(event_types.CHAT_CHANGED, listener);
                 requestAnimationFrame(() => resolve(receivedChatId));
             } else {
-                // 条件不满足时，也打印当前上下文状态帮助调试
                 logDebug(`waitForChatChange: 条件未满足 ("${description}"). Received Chat ID: ${receivedChatId}, Context Group: ${currentContext.groupId}, Context Char: ${currentContext.characterId}, Context Chat: ${currentContext.chatId}. 继续等待...`);
             }
         };
+        // 添加监听器仍然是 .on
         eventSource.on(event_types.CHAT_CHANGED, listener);
     });
 }
